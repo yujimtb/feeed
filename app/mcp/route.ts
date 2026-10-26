@@ -51,6 +51,8 @@ async function handle(req: Request) {
 
   // shortcut: ステートレスにリクエストごとにサーバーを作る。サーバー起点の通知が必要になったらセッション管理を入れる
   const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
+  // クライアント側の不具合を調べられるよう、プロトコルエラーは Vercel のログに残す
+  transport.onerror = (e) => console.error('mcp error', clientId, req.headers.get('mcp-protocol-version'), req.headers.get('user-agent'), e.message)
   await buildServer(sb, grant.account_id).connect(transport)
   return transport.handleRequest(req)
 }
