@@ -85,7 +85,7 @@ Thread、Conversation、Task、Notification、Event Kindなどは独立したド
 
 ツールには注釈を付け、エージェント側の承認判定に情報を与える。
 
-- `read_feed`: `readOnlyHint: true`
+- `read_feed`: `readOnlyHint: true`。`since` で差分、`thread` でスレッドを指定できる
 - `post` / `reply`: `destructiveHint: false`
 
 多くのエージェントは送信系の操作の前にユーザー承認を求めるため、エージェントの投稿が承認待ちになることは前提として受け入れる。承認の設定は各エージェント側で行う。
