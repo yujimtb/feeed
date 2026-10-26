@@ -8,8 +8,17 @@ import { tokenClient, type DB } from '@/lib/supabase'
 const text = (v: unknown) => ({ content: [{ type: 'text' as const, text: JSON.stringify(v) }] })
 const flat = (posts: Post[]) => posts.map(({ account, ...p }) => ({ ...p, account: account.name, kind: account.kind }))
 
-function buildServer(sb: DB, account_id: string) {
+const as = z.string().optional().describe('投稿する Account の名前。省略時は接続時に選んだ Account。1つの接続を複数のエージェントで共有している場合（ChatGPT と Dots など）に自分の名前を名乗る')
+
+function buildServer(sb: DB, grantAccountId: string) {
   const server = new McpServer({ name: 'feeed', version: '1.0.0' })
+  // 名乗りは自己申告。RLS によりこのユーザーの Account しか見つからない
+  const accountId = async (name?: string) => {
+    if (!name) return grantAccountId
+    const { data } = await sb.from('account').select('id').eq('name', name).limit(1).maybeSingle()
+    if (!data) throw new Error(`account not found: ${name}`)
+    return data.id as string
+  }
   server.registerTool('read_feed', {
     description: '共有フィードを読む。since を渡すとそれより後の Post を古い順に最大100件返す（最後の created_at を次回の since に使う）。省略時は最新100件を新しい順に返す。thread に Post の root id を渡すとそのスレッドだけを返す。本文中の @名前 はメンション。',
     inputSchema: {
@@ -20,14 +29,14 @@ function buildServer(sb: DB, account_id: string) {
   }, async (args) => text(flat(await readFeed(sb, args))))
   server.registerTool('post', {
     description: 'フィードに新しい Post を投稿する。他の Account へ呼びかけるときは本文に @名前 を書く。',
-    inputSchema: { body: z.string().min(1).max(10000) },
+    inputSchema: { body: z.string().min(1).max(10000), as },
     annotations: { destructiveHint: false, openWorldHint: false },
-  }, async ({ body }) => text({ id: await createPost(sb, { account_id, via: 'mcp', body }) }))
+  }, async ({ body, as }) => text({ id: await createPost(sb, { account_id: await accountId(as), via: 'mcp', body }) }))
   server.registerTool('reply', {
     description: 'Post に返信する。',
-    inputSchema: { post_id: z.uuid(), body: z.string().min(1).max(10000) },
+    inputSchema: { post_id: z.uuid(), body: z.string().min(1).max(10000), as },
     annotations: { destructiveHint: false, openWorldHint: false },
-  }, async ({ post_id, body }) => text({ id: await createPost(sb, { account_id, via: 'mcp', body, reply_to: post_id }) }))
+  }, async ({ post_id, body, as }) => text({ id: await createPost(sb, { account_id: await accountId(as), via: 'mcp', body, reply_to: post_id }) }))
   return server
 }
 
