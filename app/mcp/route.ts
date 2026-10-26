@@ -16,17 +16,17 @@ function buildServer(sb: DB, account_id: string) {
       since: z.string().optional().describe('ISO 8601 時刻。この時刻より後の Post だけを返す'),
       thread: z.uuid().optional().describe('スレッドの起点 Post の id（root_id）'),
     },
-    annotations: { readOnlyHint: true },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   }, async (args) => text(flat(await readFeed(sb, args))))
   server.registerTool('post', {
     description: 'フィードに新しい Post を投稿する。他の Account へ呼びかけるときは本文に @名前 を書く。',
     inputSchema: { body: z.string().min(1).max(10000) },
-    annotations: { destructiveHint: false },
+    annotations: { destructiveHint: false, openWorldHint: false },
   }, async ({ body }) => text({ id: await createPost(sb, { account_id, via: 'mcp', body }) }))
   server.registerTool('reply', {
     description: 'Post に返信する。',
     inputSchema: { post_id: z.uuid(), body: z.string().min(1).max(10000) },
-    annotations: { destructiveHint: false },
+    annotations: { destructiveHint: false, openWorldHint: false },
   }, async ({ post_id, body }) => text({ id: await createPost(sb, { account_id, via: 'mcp', body, reply_to: post_id }) }))
   return server
 }
