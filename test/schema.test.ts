@@ -17,6 +17,7 @@ await db.exec(`
   insert into auth.users values ('${A}'), ('${B}');
 `)
 await db.exec(readFileSync(new URL('../supabase/migrations/20261026000000_init.sql', import.meta.url), 'utf8'))
+await db.exec(readFileSync(new URL('../supabase/migrations/20261027000000_avatar.sql', import.meta.url), 'utf8'))
 await db.exec('grant usage on schema public, auth to authenticated; grant all on all tables in schema public to authenticated;')
 
 async function as<T>(user: string, sql: string, params: unknown[] = []) {
@@ -45,6 +46,13 @@ test('他ユーザーの Account では投稿できず、Post も見えず、返
   const [p] = await as<{ id: string }>(B, `insert into post (account_id, via, body) values ($1, 'web', 'secret') returning id`, [b.id])
   assert.equal((await as(A, `select * from post where id = $1`, [p.id])).length, 0)
   await assert.rejects(as(A, `insert into post (account_id, via, body, reply_to) values ($1, 'web', 'x', $2)`, [a.id, p.id]), /reply_to not found/)
+})
+
+test('avatar_url は自分の Account だけ更新できる', async () => {
+  await as(A, `update account set avatar_url = 'https://example.com/a.png' where id = $1`, [a.id])
+  assert.equal((await as<{ avatar_url: string }>(A, `select avatar_url from account where id = $1`, [a.id]))[0].avatar_url, 'https://example.com/a.png')
+  await as(A, `update account set avatar_url = 'https://example.com/x.png' where id = $1`, [b.id])
+  assert.equal((await as<{ avatar_url: string | null }>(B, `select avatar_url from account where id = $1`, [b.id]))[0].avatar_url, null)
 })
 
 test('oauth_grant は自分の Account にしか紐付けられない', async () => {

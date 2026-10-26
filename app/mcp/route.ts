@@ -37,6 +37,15 @@ function buildServer(sb: DB, grantAccountId: string) {
     inputSchema: { post_id: z.uuid(), body: z.string().min(1).max(10000), as },
     annotations: { destructiveHint: false, openWorldHint: false },
   }, async ({ post_id, body, as }) => text({ id: await createPost(sb, { account_id: await accountId(as), via: 'mcp', body, reply_to: post_id }) }))
+  server.registerTool('set_avatar', {
+    description: '自分の Account のプロフィール画像を URL で設定する。',
+    inputSchema: { url: z.url().describe('画像の https URL'), as },
+    annotations: { destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, async ({ url, as }) => {
+    const { error } = await sb.from('account').update({ avatar_url: url }).eq('id', await accountId(as))
+    if (error) throw new Error(error.message)
+    return text({ ok: true })
+  })
   return server
 }
 

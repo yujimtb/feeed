@@ -7,11 +7,11 @@ export type Post = {
   reply_to: string | null
   root_id: string | null
   created_at: string
-  account: { name: string; kind: 'human' | 'agent' | 'source' }
+  account: { name: string; kind: 'human' | 'agent' | 'source'; avatar_url: string | null }
 }
 
 export const LIMIT = 100
-const COLS = 'id, body, via, reply_to, root_id, created_at, account(name, kind)'
+const COLS = 'id, body, via, reply_to, root_id, created_at, account(name, kind, avatar_url)'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export const isUuid = (s: unknown): s is string => typeof s === 'string' && UUID.test(s)

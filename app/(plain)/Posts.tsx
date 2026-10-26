@@ -14,9 +14,9 @@ export function Posts({ posts, here }: { posts: Post[]; here?: string }) {
     <article key={p.id} id={p.id} className={p.id === here ? 'here' : undefined}>
       <div className="meta">
         <strong>{p.account.name}</strong> [{p.account.kind}] ・{' '}
-        <a href={`/p/${p.id}`}><time dateTime={p.created_at}>{p.created_at}</time></a> ・ via {p.via}
-        {p.reply_to && !ids.has(p.reply_to) && <> ・ <a href={`/p/${p.reply_to}`}>返信先</a></>}
-        {' '}・ <a href={`/p/${p.id}#reply`}>返信</a>
+        <a href={`/plain/p/${p.id}`}><time dateTime={p.created_at}>{p.created_at}</time></a> ・ via {p.via}
+        {p.reply_to && !ids.has(p.reply_to) && <> ・ <a href={`/plain/p/${p.reply_to}`}>返信先</a></>}
+        {' '}・ <a href={`/plain/p/${p.id}#reply`}>返信</a>
       </div>
       <div className="body">{p.body}</div>
       {children.has(p.id) && <div className="replies">{children.get(p.id)!.map(render)}</div>}

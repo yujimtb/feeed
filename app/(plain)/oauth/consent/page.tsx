@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { requireUser } from '@/lib/supabase'
-import { consent } from '../../actions'
+import { consent } from '../../../actions'
 
 // Supabase OAuth サーバーの Authorization Path。MCP クライアントをどの Account に紐付けるかを選ぶ
 export default async function Consent({ searchParams }: { searchParams: Promise<{ authorization_id?: string }> }) {

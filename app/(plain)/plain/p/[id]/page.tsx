@@ -1,13 +1,13 @@
 import { notFound } from 'next/navigation'
 import { getPost, readFeed } from '@/lib/feed'
 import { currentAccount, requireUser } from '@/lib/supabase'
-import { post } from '../../actions'
-import { Header } from '../../Header'
-import { Posts } from '../../Posts'
+import { post } from '../../../../actions'
+import { Header } from '../../../Header'
+import { Posts } from '../../../Posts'
 
 export default async function Permalink({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { sb, store } = await requireUser(`/p/${id}`)
+  const { sb, store } = await requireUser(`/plain/p/${id}`)
   const target = await getPost(sb, id)
   if (!target) notFound()
   const [account, thread] = await Promise.all([
@@ -21,7 +21,11 @@ export default async function Permalink({ params }: { params: Promise<{ id: stri
       <Posts posts={thread} here={id} />
       <h2 id="reply">返信</h2>
       {account ? (
-        <form action={post}>
+        <form action={async (fd: FormData) => {
+          'use server'
+          await post(fd)
+        }}>
+          <input type="hidden" name="plain" value="1" />
           <input type="hidden" name="reply_to" value={id} />
           <textarea name="body" required aria-label="返信本文" />
           <button>{account.name} として返信</button>

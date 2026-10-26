@@ -1,9 +1,10 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { createPost, isUuid } from '@/lib/feed'
-import { ACCOUNT_COOKIE, cookieClient, requireUser } from '@/lib/supabase'
+import { createPost, isUuid, readFeed } from '@/lib/feed'
+import { ACCOUNT_COOKIE, cookieClient, requireUser, type DB } from '@/lib/supabase'
 
 // オープンリダイレクトを防ぐため、同一オリジンのパスだけ許す
 const safeNext = (v: FormDataEntryValue | null) =>
@@ -27,12 +28,47 @@ export async function logout() {
   redirect('/login')
 }
 
+const AVATAR_MAX = 2 * 1024 * 1024
+
+async function uploadAvatar(sb: DB, accountId: string, file: File) {
+  if (file.size > AVATAR_MAX) throw new Error('image too large')
+  if (!file.type.startsWith('image/')) throw new Error('not an image')
+  const path = `${accountId}/avatar`
+  const { error } = await sb.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type })
+  if (error) throw new Error(error.message)
+  // 同じパスに上書きするので、ブラウザのキャッシュを切るためにクエリを付ける
+  return `${sb.storage.from('avatars').getPublicUrl(path).data.publicUrl}?v=${Date.now()}`
+}
+
+export async function setAvatar(form: FormData) {
+  const { sb } = await requireUser('/accounts')
+  const id = form.get('account_id')
+  if (!isUuid(id)) throw new Error('account_id required')
+  const file = form.get('avatar')
+  const url = String(form.get('avatar_url') ?? '').trim()
+  let avatar_url: string | null = null
+  if (file instanceof File && file.size > 0) {
+    avatar_url = await uploadAvatar(sb, id, file)
+  } else if (/^https?:\/\//.test(url)) {
+    avatar_url = url
+  }
+  // RLS で自分の Account しか更新できない
+  const { error } = await sb.from('account').update({ avatar_url }).eq('id', id)
+  if (error) throw new Error(error.message)
+  redirect('/accounts')
+}
+
 export async function createAccount(form: FormData) {
   const { sb } = await requireUser('/accounts')
   const name = String(form.get('name') ?? '').trim()
   const kind = String(form.get('kind'))
-  const { error } = await sb.from('account').insert({ name, kind })
+  const { data, error } = await sb.from('account').insert({ name, kind }).select('id').single()
   if (error) throw new Error(error.message)
+  const file = form.get('avatar')
+  if (file instanceof File && file.size > 0) {
+    const avatar_url = await uploadAvatar(sb, data.id, file)
+    await sb.from('account').update({ avatar_url }).eq('id', data.id)
+  }
   redirect('/accounts')
 }
 
@@ -57,7 +93,17 @@ export async function post(form: FormData) {
     account_id, via: 'web', body: String(form.get('body') ?? ''),
     reply_to: isUuid(reply_to) ? reply_to : undefined,
   })
-  redirect(`/p/${id}`)
+  // プレーンUIはパーマリンクへ戻す。新UIは楽観的更新のトランジションを壊さないよう値を返すだけ
+  if (form.get('plain')) redirect(`/plain/p/${id}`)
+  revalidatePath('/')
+  revalidatePath('/p/[id]', 'page')
+  return { id }
+}
+
+export async function pollFeed(since: string) {
+  const { sb } = await requireUser('/')
+  if (Number.isNaN(Date.parse(since))) return []
+  return readFeed(sb, { since })
 }
 
 export async function consent(form: FormData) {

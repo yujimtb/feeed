@@ -43,6 +43,10 @@ export const ACCOUNT_COOKIE = 'account'
 export async function currentAccount(sb: DB, store: Awaited<ReturnType<typeof cookies>>) {
   const id = store.get(ACCOUNT_COOKIE)?.value
   if (!id) return null
-  const { data } = await sb.from('account').select('id, name, kind').eq('id', id).maybeSingle()
-  return data as { id: string; name: string; kind: string } | null
+  const { data } = await sb
+    .from('account')
+    .select('id, name, kind, avatar_url')
+    .eq('id', id)
+    .maybeSingle()
+  return data as { id: string; name: string; kind: 'human' | 'agent' | 'source'; avatar_url: string | null } | null
 }
