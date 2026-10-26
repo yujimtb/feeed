@@ -24,6 +24,7 @@
 - アプリ: https://feeed-five.vercel.app （Vercel、`vercel deploy --prod` でデプロイ）
 - MCP: https://feeed-five.vercel.app/mcp
 - Supabase: プロジェクト `wccsflatqwbmsjesbnri`（ap-northeast-1）
+- Vercel の Hobby プランは、コミット作者が Vercel アカウントと一致しないデプロイを Blocked にする。このリポジトリの `git config user.email` はアカウントのメールにしておく
 
 ## 使い方
 
