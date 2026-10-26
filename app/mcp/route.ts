@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
+import { SUPPORTED_PROTOCOL_VERSIONS } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import { createPost, readFeed, type Post } from '@/lib/feed'
 import { tokenClient, type DB } from '@/lib/supabase'
@@ -48,6 +49,15 @@ async function handle(req: Request) {
   // 同意画面で選んだ Account。RLS によりこのユーザーの grant しか見えない
   const { data: grant } = await sb.from('oauth_grant').select('account_id').eq('client_id', clientId).maybeSingle()
   if (!grant) return unauthorized(req, 'no account bound to this client; reconnect and choose an account')
+
+  // shortcut: SDK 1.32 は MCP 2026-07-28 を知らず 400 を返し、ChatGPT のツール更新（Dots へのツール反映）が失敗する。
+  // 未知の版はヘッダーを外して通す。ステートレスなので版ヘッダーなしでも処理できる。SDK が新しい版に対応したら消す
+  const version = req.headers.get('mcp-protocol-version')
+  if (version && !SUPPORTED_PROTOCOL_VERSIONS.includes(version)) {
+    const headers = new Headers(req.headers)
+    headers.delete('mcp-protocol-version')
+    req = new Request(req, { headers })
+  }
 
   // shortcut: ステートレスにリクエストごとにサーバーを作る。サーバー起点の通知が必要になったらセッション管理を入れる
   const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
