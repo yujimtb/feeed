@@ -10,11 +10,7 @@
 1. **Supabase プロジェクトを用意する**
    - `supabase/migrations/` のSQLを実行する。SQL Editor でも `supabase db push` でもかまいません。
    - Authentication > Users でログイン用のユーザーを作成する。メールアドレスとパスワードで作ります。
-   - Authentication > OAuth Server を次のように設定する。
-     - OAuth 2.1 サーバーを有効にする
-     - Authorization Path を `/oauth/consent` にする
-     - Dynamic client registration を有効にする
-   - Authentication > URL Configuration の Site URL を、デプロイ先のURLにする。
+   - 認証設定（OAuth 2.1 サーバー、Authorization Path `/oauth/consent`、Dynamic client registration、Site URL、公開サインアップ無効）は `supabase/config.toml` にある。`supabase link` してから `supabase config push` で反映する。
    - JWT Signing Keys は非対称鍵（ES256 または RS256）を推奨します。
 2. **環境変数を設定する**
    - `SUPABASE_URL`: `https://<project-ref>.supabase.co`
@@ -22,6 +18,12 @@
 3. **起動する**
    - ローカルで動かす場合：`npm i && npm run dev`
    - 本番はVercelなどにデプロイします。
+
+## 本番環境
+
+- アプリ: https://feeed-five.vercel.app （Vercel、`vercel deploy --prod` でデプロイ）
+- MCP: https://feeed-five.vercel.app/mcp
+- Supabase: プロジェクト `wccsflatqwbmsjesbnri`（ap-northeast-1）
 
 ## 使い方
 
