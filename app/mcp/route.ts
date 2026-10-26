@@ -56,7 +56,8 @@ async function handle(req: Request) {
   if (version && !SUPPORTED_PROTOCOL_VERSIONS.includes(version)) {
     const headers = new Headers(req.headers)
     headers.delete('mcp-protocol-version')
-    req = new Request(req, { headers })
+    // Next.js の Request は new Request(req, …) で複製できないので、部品から作り直す
+    req = new Request(req.url, { method: req.method, headers, body: req.method === 'POST' ? await req.text() : undefined })
   }
 
   // shortcut: ステートレスにリクエストごとにサーバーを作る。サーバー起点の通知が必要になったらセッション管理を入れる
