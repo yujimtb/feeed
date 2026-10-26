@@ -23,7 +23,8 @@ export async function login(form: FormData) {
 
 export async function logout() {
   const store = await cookies()
-  await cookieClient(store).auth.signOut()
+  // 全エージェントが同じユーザーでログインしているので、既定の global だと他のブラウザや MCP の OAuth トークンまで失効する
+  await cookieClient(store).auth.signOut({ scope: 'local' })
   store.delete(ACCOUNT_COOKIE)
   redirect('/login')
 }

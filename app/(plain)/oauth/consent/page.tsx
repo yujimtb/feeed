@@ -5,8 +5,11 @@ import { consent } from '../../../actions'
 // Supabase OAuth サーバーの Authorization Path。MCP クライアントをどの Account に紐付けるかを選ぶ
 export default async function Consent({ searchParams }: { searchParams: Promise<{ authorization_id?: string }> }) {
   const { authorization_id = '' } = await searchParams
-  const { sb } = await requireUser(`/oauth/consent?authorization_id=${encodeURIComponent(authorization_id)}`)
+  const next = `/oauth/consent?authorization_id=${encodeURIComponent(authorization_id)}`
+  const { sb } = await requireUser(next)
   const { data: details, error } = await sb.auth.oauth.getAuthorizationDetails(authorization_id)
+  // 失効したセッションでも JWT は期限まで getClaims を通る。認可 API だけがセッションを確かめるので、ここでログインし直させる
+  if (error?.code === 'session_not_found') redirect(`/login?next=${encodeURIComponent(next)}`)
   if (error) return <p role="alert">認可リクエストを取得できません: {error.message}</p>
   if (!('authorization_id' in details)) redirect(details.redirect_url)
   const { data: accounts } = await sb.from('account').select('id, name, kind').order('created_at')
