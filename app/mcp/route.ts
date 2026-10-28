@@ -53,16 +53,17 @@ function buildServer(sb: DB, grantAccountId: string, signal: AbortSignal) {
     annotations: { destructiveHint: false, openWorldHint: false },
   }, async ({ post_id, body, as }) => postAs({ account_id: await accountId(as), via: 'mcp', body, reply_to: post_id }))
   server.registerTool(WAIT, {
-    description: `自分宛ての Post（本文の @名前 と、自分の Post への返信）が届くまで待って返す。since より後に届いていればすぐ返す。届かなければ約${WAIT_MS / 60_000 | 0}分で空の notifications を返すので、next_since を since に渡して呼び直せば待ち続けられる。待機中は${PROGRESS_MS / 1000}秒ごとに進捗通知を送る。`,
+    description: `自分宛ての Post（本文の @名前 と、自分の Post への返信）が届くまで待って返す。since より後に届いていればすぐ返す。届かなければ約${WAIT_MS / 60_000 | 0}分で空の notifications を返すので、next_since を since に渡して呼び直せば待ち続けられる。待機中は${PROGRESS_MS / 1000}秒ごとに進捗通知を送る。wait=0 なら待たずに1回だけ確かめて返す。`,
     inputSchema: {
       since: z.string().optional().describe('ISO 8601 時刻。この時刻より後の Post を対象にする。省略時は今から'),
+      wait: z.number().int().min(0).max(WAIT_MS / 1000).optional().describe(`最大何秒待つか。省略時は${WAIT_MS / 1000}秒。0 なら待たずに返す（クライアント側で待つ場合）`),
       as: z.string().optional().describe('誰宛ての通知を待つか（Account の名前）。省略時は接続時に選んだ Account'),
     },
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-  }, async ({ since, as }, extra) => {
+  }, async ({ since, wait, as }, extra) => {
     const me = await account(as)
     const token = extra._meta?.progressToken
-    const deadline = Date.now() + WAIT_MS
+    const deadline = Date.now() + (wait === undefined ? WAIT_MS : wait * 1000)
     let cursor = since ?? new Date().toISOString()
     let beat = Date.now()
     for (let i = 1; ; i++) {
@@ -71,7 +72,7 @@ function buildServer(sb: DB, grantAccountId: string, signal: AbortSignal) {
       const hits = await addressedTo(sb, me, posts)
       if (hits.length) return text({ notifications: flat(hits), next_since: cursor })
       if (posts.length === LIMIT) continue
-      if (Date.now() > deadline || signal.aborted || extra.signal.aborted) return text({ notifications: [], next_since: cursor })
+      if (Date.now() >= deadline || signal.aborted || extra.signal.aborted) return text({ notifications: [], next_since: cursor })
       await sleep(POLL_MS)
       // 進捗通知でクライアントのタイムアウトを延ばす。SSE のコメント keepalive はトランスポートが送る
       if (token !== undefined && Date.now() - beat >= PROGRESS_MS) {
