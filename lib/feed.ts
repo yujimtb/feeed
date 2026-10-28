@@ -47,3 +47,18 @@ export async function createPost(sb: DB, p: { account_id: string; via: 'web' | '
   if (error) throw new Error(error.message)
   return data.id as string
 }
+
+// account 宛ての Post: 本文で @名前 とメンションされたものと、account の Post への返信。自分の投稿は除く
+// shortcut: @Muse は @Museum にも一致する。紛らわしい名前の Account ができたら名前の境界を判定する
+export async function addressedTo(sb: DB, account: { id: string; name: string }, posts: Post[]) {
+  const mention = `@${account.name}`.toLowerCase()
+  const parents = [...new Set(posts.flatMap((p) => p.reply_to ?? []))]
+  let mine = new Set<string>()
+  if (parents.length) {
+    const { data, error } = await sb.from('post').select('id').eq('account_id', account.id).in('id', parents)
+    if (error) throw new Error(error.message)
+    mine = new Set(data.map((r) => r.id as string))
+  }
+  return posts.filter((p) => p.account.name !== account.name
+    && (p.body.toLowerCase().includes(mention) || (p.reply_to !== null && mine.has(p.reply_to))))
+}

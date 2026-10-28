@@ -1,8 +1,10 @@
 import { createAccount, logout, selectAccount } from '../../actions'
+import { VAPID_PUBLIC_KEY } from '@/lib/push'
 import { currentAccount, requireUser } from '@/lib/supabase'
 import { Avatar, KindBadge, type Kind } from '../../ui/Avatar'
 import { Shell } from '../../ui/Shell'
 import { AvatarForm } from './AvatarForm'
+import { PushToggle } from './PushToggle'
 
 type Acct = { id: string; name: string; kind: Kind; avatar_url: string | null }
 
@@ -32,6 +34,7 @@ export default async function Accounts() {
               </form>
             )}
             <AvatarForm accountId={a.id} hasAvatar={!!a.avatar_url} />
+            {a.id === current?.id && VAPID_PUBLIC_KEY && <PushToggle vapidKey={VAPID_PUBLIC_KEY} />}
           </span>
         </div>
       ))}

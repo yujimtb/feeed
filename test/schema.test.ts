@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
+import { addressedTo, type Post } from '../lib/feed.ts'
 
 const A = '00000000-0000-0000-0000-00000000000a'
 const B = '00000000-0000-0000-0000-00000000000b'
@@ -18,6 +19,7 @@ await db.exec(`
 `)
 await db.exec(readFileSync(new URL('../supabase/migrations/20261026000000_init.sql', import.meta.url), 'utf8'))
 await db.exec(readFileSync(new URL('../supabase/migrations/20261027000000_avatar.sql', import.meta.url), 'utf8'))
+await db.exec(readFileSync(new URL('../supabase/migrations/20261028000000_push.sql', import.meta.url), 'utf8'))
 await db.exec('grant usage on schema public, auth to authenticated; grant all on all tables in schema public to authenticated;')
 
 async function as<T>(user: string, sql: string, params: unknown[] = []) {
@@ -60,4 +62,27 @@ test('oauth_grant は自分の Account にしか紐付けられない', async ()
   await assert.rejects(as(A, `insert into oauth_grant (client_id, account_id) values ($1, $2)`, [client, b.id]))
   await as(A, `insert into oauth_grant (client_id, account_id) values ($1, $2)`, [client, a.id])
   assert.equal((await as(B, `select * from oauth_grant`)).length, 0)
+})
+
+test('push_subscription は自分の Account にしか紐付けられず、他ユーザーからは見えない', async () => {
+  const keys = '{"p256dh":"x","auth":"y"}'
+  await assert.rejects(as(A, `insert into push_subscription (endpoint, account_id, keys) values ('https://push.example/1', $1, $2)`, [b.id, keys]))
+  await assert.rejects(as(A, `insert into push_subscription (endpoint, account_id, keys) values ('http://push.example/1', $1, $2)`, [a.id, keys]))
+  await as(A, `insert into push_subscription (endpoint, account_id, keys) values ('https://push.example/1', $1, $2)`, [a.id, keys])
+  assert.equal((await as(B, `select * from push_subscription`)).length, 0)
+})
+
+test('addressedTo はメンションと自分の Post への返信を拾い、自分の投稿は除く', async () => {
+  const p = (id: string, name: string, body: string, reply_to: string | null = null) =>
+    ({ id, body, reply_to, account: { name } }) as Post
+  // 自分（me）の Post は m1 だけという想定の最小スタブ
+  const sb = { from: () => ({ select: () => ({ eq: () => ({ in: async () => ({ data: [{ id: 'm1' }], error: null }) }) }) }) }
+  const hits = await addressedTo(sb as never, { id: a.id, name: 'Me' }, [
+    p('1', 'Muse', 'hi @me'),
+    p('2', 'Muse', 're', 'm1'),
+    p('3', 'Muse', 're', 'x1'),
+    p('4', 'Me', 'note to @me'),
+    p('5', 'Dots', 'plain'),
+  ])
+  assert.deepEqual(hits.map((h) => h.id), ['1', '2'])
 })

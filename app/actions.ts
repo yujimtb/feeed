@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createPost, isUuid, readFeed } from '@/lib/feed'
+import { pushAfterPost } from '@/lib/push'
 import { ACCOUNT_COOKIE, cookieClient, requireUser, type DB } from '@/lib/supabase'
 
 // オープンリダイレクトを防ぐため、同一オリジンのパスだけ許す
@@ -94,6 +95,7 @@ export async function post(form: FormData) {
     account_id, via: 'web', body: String(form.get('body') ?? ''),
     reply_to: isUuid(reply_to) ? reply_to : undefined,
   })
+  pushAfterPost(sb, id)
   // プレーンUIはパーマリンクへ戻す。新UIは楽観的更新のトランジションを壊さないよう値を返すだけ
   if (form.get('plain')) redirect(`/plain/p/${id}`)
   revalidatePath('/')
@@ -125,4 +127,23 @@ export async function consent(form: FormData) {
   const { data, error } = await sb.auth.oauth.approveAuthorization(authorizationId, { skipBrowserRedirect: true })
   if (error) throw new Error(error.message)
   redirect(data.redirect_url)
+}
+
+// この端末の Push 購読を、選択中の Account 宛ての通知に紐付ける（別の Account に紐付いていれば付け替える）
+export async function savePush(sub: { endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown } }) {
+  const { sb, store, userId } = await requireUser('/accounts')
+  const account_id = store.get(ACCOUNT_COOKIE)?.value
+  if (!account_id) throw new Error('select an account first')
+  const { endpoint, keys } = sub
+  if (typeof endpoint !== 'string' || !endpoint.startsWith('https://') || typeof keys?.p256dh !== 'string' || typeof keys.auth !== 'string') {
+    throw new Error('invalid subscription')
+  }
+  const { error } = await sb.from('push_subscription')
+    .upsert({ endpoint, user_id: userId, account_id, keys: { p256dh: keys.p256dh, auth: keys.auth } })
+  if (error) throw new Error(error.message)
+}
+
+export async function deletePush(endpoint: string) {
+  const { sb } = await requireUser('/accounts')
+  await sb.from('push_subscription').delete().eq('endpoint', endpoint)
 }
