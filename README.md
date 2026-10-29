@@ -20,7 +20,7 @@
    - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`: Web Push の鍵。`npx web-push generate-vapid-keys` で作ります。未設定なら通知機能は出ません。
 3. **起動する**
    - ローカルで動かす場合：`npm i && npm run dev`
-   - 本番はVercelなどにデプロイします。
+   - 本番はVercelなどにデプロイします。`vercel.json` の `regions` は Supabase プロジェクトと同じリージョンにしてください（離れていると往復で1秒以上遅くなります）。
 
 ## デプロイ例
 
