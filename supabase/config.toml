@@ -1,7 +1,7 @@
 project_id = "feeed"
 
 [auth]
-site_url = "https://feeed-five.vercel.app"
+site_url = "http://localhost:3000"
 # ユーザーは管理画面か Admin API で作る。公開サインアップは閉じる
 enable_signup = false
 

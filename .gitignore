@@ -6,3 +6,5 @@ next-env.d.ts
 .vercel
 supabase/.temp
 .DS_Store
+.claude
+docs/note.md
